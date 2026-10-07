@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Побег из комнаты</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="hud">
+      <span id="hud-level">Уровень 1</span>
+      <span id="hud-keys">🗝 0 / 0</span>
+      <span id="hud-sense" title="Чутьё: чем ближе спрятанный ключ, тем полнее шкала">
+        Чутьё <span id="sense-bar"><span id="sense-fill"></span></span>
+      </span>
+      <span id="hud-time">00:00</span>
+    </div>
+
+    <div id="stage">
+      <canvas id="game" width="800" height="544"></canvas>
+      <div id="overlay">
+        <div id="overlay-box">
+          <h1 id="overlay-title">Побег из комнаты</h1>
+          <p id="overlay-text"></p>
+          <button id="overlay-btn">Начать игру</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="monster-info"></div>
+    <div id="help">
+      <b>WASD</b> / <b>стрелки</b> — движение &nbsp;·&nbsp;
+      удерживай <b>E</b> или <b>Пробел</b> — обыскать предмет &nbsp;·&nbsp;
+      <b>R</b> — новая комната
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
