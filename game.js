@@ -51,6 +51,10 @@
   const overlayText = document.getElementById('overlay-text');
   const overlayBtn = document.getElementById('overlay-btn');
   const monsterInfo = document.getElementById('monster-info');
+  const joystickEl = document.getElementById('joystick');
+  const joystickKnob = document.getElementById('joystick-knob');
+  const btnSearch = document.getElementById('btn-search');
+  const btnRestart = document.getElementById('btn-restart');
 
   // Статичная часть карты (пол и стены) рисуется один раз на уровень
   const mapCanvas = document.createElement('canvas');
@@ -91,6 +95,14 @@
   let floaters = [];           // всплывающие надписи {x, y, text, color, age}
 
   const keysDown = new Set();
+
+  // Сенсорный джойстик: id — палец, который его держит; x, y — отклонение от -1 до 1
+  const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  const JOY_RADIUS = 45;       // ход джойстика, px экрана
+  let isTouch = false;
+  let infoTimer = 0;
+  // на телефоне в портретной ориентации показывается просьба повернуть экран, игра на паузе
+  const portraitPhone = window.matchMedia('(orientation: portrait) and (pointer: coarse)');
 
   // ---------- Утилиты ----------
   const rand = (n) => Math.floor(Math.random() * n);
@@ -419,6 +431,10 @@
     monster = { type, x: 0, y: 0, tx: 0, ty: 0, prevX: 0, prevY: 0, speed, anim: 0, timer: WEB_INTERVAL, wait: 0, target: null };
     placeMonster(monster);
     monsterInfo.textContent = 'В этой комнате: ' + def.name + ' — ' + def.hint + '.';
+    // на низких экранах описание лежит поверх поля и через несколько секунд гаснет (см. style.css)
+    monsterInfo.classList.remove('faded');
+    clearTimeout(infoTimer);
+    infoTimer = setTimeout(() => monsterInfo.classList.add('faded'), 6000);
   }
 
   // Шаг в сторону игрока по полю расстояний
@@ -628,11 +644,17 @@
       if (keysDown.has('KeyD') || keysDown.has('ArrowRight')) mx += 1;
       if (keysDown.has('KeyW') || keysDown.has('ArrowUp')) my -= 1;
       if (keysDown.has('KeyS') || keysDown.has('ArrowDown')) my += 1;
+      if (mx || my) {
+        const len = Math.hypot(mx, my);
+        mx /= len;
+        my /= len;
+      } else {
+        mx = joy.x;
+        my = joy.y;
+      }
     }
-    if (mx || my) {
-      const len = Math.hypot(mx, my);
-      mx /= len;
-      my /= len;
+    player.moving = mx !== 0 || my !== 0;
+    if (player.moving) {
       player.dirX = mx;
       player.dirY = my;
       player.walk += dt * 10;
@@ -794,6 +816,7 @@
     overlayBtn.textContent = button;
     overlay.classList.remove('hidden');
     overlayBtn.focus();
+    releaseJoystick();
   }
 
   // ---------- Отрисовка ----------
@@ -938,7 +961,7 @@
   function drawPlayer() {
     const x = player.x;
     const y = player.y;
-    const moving = keysDown.size > 0 ? Math.sin(player.walk) : 0;
+    const moving = player.moving ? Math.sin(player.walk) : 0;
 
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
@@ -1144,12 +1167,14 @@
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(cx - 10, top - 17 + Math.sin(time * 5) * 2, 20, 16);
       ctx.fillStyle = '#fff';
-      ctx.fillText('E', cx, top - 5 + Math.sin(time * 5) * 2);
+      ctx.fillText(isTouch ? '🔍' : 'E', cx, top - 5 + Math.sin(time * 5) * 2);
     }
   }
 
   function drawFloaters() {
-    ctx.font = 'bold 14px "Segoe UI", sans-serif';
+    // на маленьком экране холст сжат — увеличиваем шрифт, чтобы надписи читались
+    const fontPx = Math.round(14 * clamp((0.8 * W) / (canvas.clientWidth || W), 1, 2));
+    ctx.font = 'bold ' + fontPx + 'px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     for (const f of floaters) {
       if (f.age < 0) continue;
@@ -1190,7 +1215,7 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - lastFrame) / 1000);
     lastFrame = now;
-    if (state === 'play') {
+    if (state === 'play' && !portraitPhone.matches) {
       update(dt);
       render();
     }
@@ -1213,6 +1238,93 @@
 
   window.addEventListener('keyup', (e) => keysDown.delete(e.code));
   window.addEventListener('blur', () => keysDown.clear());
+
+  // ---------- Сенсорное управление ----------
+  function setTouchMode() {
+    if (isTouch) return;
+    isTouch = true;
+    document.body.classList.add('touch'); // показывает сенсорные кнопки, см. style.css
+  }
+
+  function releaseJoystick() {
+    joy.id = null;
+    joy.x = 0;
+    joy.y = 0;
+    joystickEl.classList.remove('active');
+  }
+
+  function moveJoystick(t) {
+    let dx = (t.clientX - joy.ox) / JOY_RADIUS;
+    let dy = (t.clientY - joy.oy) / JOY_RADIUS;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) {
+      dx /= len;
+      dy /= len;
+    }
+    joystickKnob.style.transform = 'translate(' + dx * JOY_RADIUS + 'px, ' + dy * JOY_RADIUS + 'px)';
+    // небольшая мёртвая зона; дальше половины хода — полная скорость
+    const mag = Math.min(1, len);
+    const speed = mag < 0.2 ? 0 : Math.min(1, mag / 0.5);
+    joy.x = mag ? (dx / mag) * speed : 0;
+    joy.y = mag ? (dy / mag) * speed : 0;
+  }
+
+  if (window.matchMedia('(pointer: coarse)').matches) setTouchMode();
+
+  // Джойстик появляется там, где палец коснулся экрана (кроме кнопок)
+  window.addEventListener('touchstart', (e) => {
+    setTouchMode();
+    if (state !== 'play' || e.target.closest('button')) return;
+    e.preventDefault();
+    if (joy.id !== null) return;
+    const t = e.changedTouches[0];
+    joy.id = t.identifier;
+    joy.ox = t.clientX;
+    joy.oy = t.clientY;
+    joystickEl.style.left = t.clientX + 'px';
+    joystickEl.style.top = t.clientY + 'px';
+    joystickEl.classList.add('active');
+    moveJoystick(t);
+  }, { passive: false });
+
+  window.addEventListener('touchmove', (e) => {
+    if (state === 'play') e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joy.id) moveJoystick(t);
+    }
+  }, { passive: false });
+
+  function onTouchEnd(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joy.id) releaseJoystick();
+    }
+  }
+  window.addEventListener('touchend', onTouchEnd);
+  window.addEventListener('touchcancel', onTouchEnd);
+
+  // Кнопка обыска работает как удержание клавиши E
+  function holdSearch(e) {
+    e.preventDefault();
+    keysDown.add('KeyE');
+    btnSearch.classList.add('pressed');
+  }
+
+  function releaseSearch() {
+    keysDown.delete('KeyE');
+    btnSearch.classList.remove('pressed');
+  }
+  btnSearch.addEventListener('touchstart', holdSearch, { passive: false });
+  btnSearch.addEventListener('touchend', releaseSearch);
+  btnSearch.addEventListener('touchcancel', releaseSearch);
+
+  btnRestart.addEventListener('click', () => {
+    if (state === 'play') startLevel(level);
+  });
+
+  // долгое нажатие на сенсорном экране не должно открывать меню браузера
+  window.addEventListener('contextmenu', (e) => {
+    if (isTouch) e.preventDefault();
+  });
 
   overlayBtn.addEventListener('click', () => {
     keysDown.clear();

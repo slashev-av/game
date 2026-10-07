@@ -15,6 +15,7 @@
         Чутьё <span id="sense-bar"><span id="sense-fill"></span></span>
       </span>
       <span id="hud-time">00:00</span>
+      <button id="btn-restart" class="touch-only" title="Новая комната" aria-label="Новая комната">⟳</button>
     </div>
 
     <div id="stage">
@@ -30,11 +31,23 @@
 
     <div id="monster-info"></div>
     <div id="help">
-      <b>WASD</b> / <b>стрелки</b> — движение &nbsp;·&nbsp;
-      удерживай <b>E</b> или <b>Пробел</b> — обыскать предмет &nbsp;·&nbsp;
-      <b>R</b> — новая комната
+      <span class="keys-only">
+        <b>WASD</b> / <b>стрелки</b> — движение &nbsp;·&nbsp;
+        удерживай <b>E</b> или <b>Пробел</b> — обыскать предмет &nbsp;·&nbsp;
+        <b>R</b> — новая комната
+      </span>
+      <span class="touch-only">
+        Веди пальцем по экрану — движение &nbsp;·&nbsp;
+        удерживай <b>🔍</b> — обыскать предмет &nbsp;·&nbsp;
+        <b>⟳</b> — новая комната
+      </span>
     </div>
   </div>
+
+  <!-- Сенсорное управление: джойстик появляется под пальцем, кнопка обыска — справа внизу -->
+  <div id="joystick"><div id="joystick-knob"></div></div>
+  <button id="btn-search" class="touch-only" aria-label="Обыскать">🔍</button>
+  <div id="rotate">Поверни телефон горизонтально ↻</div>
 
   <script src="game.js"></script>
 </body>
