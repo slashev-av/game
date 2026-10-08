@@ -1326,6 +1326,54 @@
     if (isTouch) e.preventDefault();
   });
 
+  // ---------- Полный экран ----------
+  // Телефон повернули горизонтально — игра разворачивается во весь экран, вертикально — сворачивается.
+  const coarsePointer = window.matchMedia('(pointer: coarse)');
+  const landscape = window.matchMedia('(orientation: landscape)');
+  let fullscreenDeclined = false; // игрок сам вышел из полного экрана — не навязываем до следующего поворота
+
+  const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+
+  function enterFullscreen() {
+    const el = document.documentElement;
+    const request = el.requestFullscreen || el.webkitRequestFullscreen; // на iPhone этого API нет
+    if (!request || !coarsePointer.matches || !landscape.matches) return;
+    if (fullscreenDeclined || fullscreenElement()) return;
+    try {
+      const result = request.call(el);
+      if (result && result.catch) result.catch(() => {});
+    } catch (e) {
+      // браузер не разрешил — попробуем снова при следующем касании
+    }
+  }
+
+  function exitFullscreen() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!exit || !fullscreenElement()) return;
+    try {
+      const result = exit.call(document);
+      if (result && result.catch) result.catch(() => {});
+    } catch (e) {
+      // выйти не получилось — не страшно
+    }
+  }
+
+  function onOrientationChange() {
+    fullscreenDeclined = false;
+    if (landscape.matches) enterFullscreen(); else exitFullscreen();
+  }
+  if (landscape.addEventListener) landscape.addEventListener('change', onOrientationChange);
+  else if (landscape.addListener) landscape.addListener(onOrientationChange); // старые Safari
+
+  // Не каждый браузер разрешает полный экран по одному повороту — тогда он включится при первом касании
+  window.addEventListener('touchend', enterFullscreen);
+
+  function onFullscreenChange() {
+    if (!fullscreenElement() && landscape.matches) fullscreenDeclined = true;
+  }
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
   overlayBtn.addEventListener('click', () => {
     keysDown.clear();
     startLevel(state === 'won' ? level + 1 : level);
